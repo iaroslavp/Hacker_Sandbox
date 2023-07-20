@@ -1,0 +1,535 @@
+<html>
+    <head>
+        <style>
+            body {
+                background-color: #000;
+            }
+
+            textarea {
+                white-space: pre;
+                overflow-wrap: normal;
+                overflow-x: scroll;
+            }
+
+            textarea[id="code-area"] {
+                background-color: #222;
+                color: #0c0;
+            }
+
+            textarea[id="console-area"] {
+                background-color: #333;
+                color: #0e0;
+                resize: none;
+            }
+
+            button[id="executeButton"] {
+                background-color: #333;
+                border-color: #f00;
+                color: #f00;
+            }
+
+            button.playButton {
+                background-color: #333;
+                border-color: #0f0;
+                color: #0f0;
+            }
+
+            button.selectionButton {
+                background-color: #333;
+                border-color: #ff0;
+                color: #ff0;
+            }
+
+            .textInput {
+                background-color: #333;
+                border-color: #0ff;
+                color: #0ff;
+            }
+        </style>
+    </head>
+
+    <body>
+        <!-- Creating Code Textarea and Console Textarea -->
+        <textarea id="code-area" rows="25" cols="50" spellcheck="false"></textarea>
+        <textarea id="console-area" rows="25" cols="38" readonly="true"></textarea><br>
+        <button id="executeButton" onclick="runCode()">Execute!</button><br><br><br>
+        <button class="playButton" onclick="playButtonLogic.leftArrow()">&larr;</button>
+        <button class="playButton" onclick="playButtonLogic.upArrow()">&uarr;</button>
+        <button class="playButton" onclick="playButtonLogic.downArrow()">&darr;</button>
+        <button class="playButton" onclick="playButtonLogic.rightArrow()">&rarr;</button><br><br>
+        <button class="selectionButton" onclick="playButtonLogic.buttonA()">A</button>
+        <button class="selectionButton" onclick="playButtonLogic.buttonB()">B</button><br><br>
+        <input class="textInput" id="textBox" type="text"/>
+        <button class="textInput" onclick="getMessage()">Send</button>
+
+        <script>
+            // Setup:{
+                /*
+                    Commands List
+                    Lists Different Sub commands "0" Means it's a Type Input
+                */
+                let commandSyntax = {
+                    "": () => {},
+
+                    console: {
+                        log: {
+                            "0": (str) => {
+                                consoleArea.value += str+'\n';;
+                            }
+                        },
+
+                        clear: () => {
+                            consoleArea.value = '';
+                        },
+
+                        size: {
+                            rows: {
+                                "0": (num) => {
+                                    consoleArea.rows = num;
+                                }
+                            },
+
+                            columns: {
+                                "0": (num) => {
+                                    consoleArea.cols = num;
+                                }
+                            }
+                        }
+                    },
+
+                    set: {
+                        "0": {
+                            "=": {
+                                "0": (varName, cont) => {
+                                    setVariable(varName, cont);
+                                }
+                            },
+
+                            undefined: (name) => {
+                                if (name[0] != "_") {
+                                    delete variables[name];
+                                }
+                            }
+                        }
+                    },
+
+                    execute: {
+                        "0": (code, pureCode) => {
+                            readCode(code);
+                        }
+                    },
+
+                    loop: {
+                        "0": {
+                            "0": (count, cont) => {
+                                for (let i = 0; i < count; i++) {
+                                    readCode(cont);
+                                }
+                            }
+                        }
+                    },
+
+                    if: {
+                        "0": {
+                            "0": (statement, cont) => {
+                                if (statement) {
+                                    readCode(cont);
+                                }
+                            }
+                        }
+                    },
+
+                    timeout: {
+                        "0": {
+                            "0": (delay, cont) => {
+                                setTimeout(() => {readCode(cont);}, delay);
+                            }
+                        }
+                    },
+
+                    math: {
+                        number: {
+                            "0": {
+                                "0": {
+                                    "+": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, num1 + num2);
+                                        }
+                                    },
+
+                                    "-": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, num1 - num2);
+                                        }
+                                    },
+
+                                    "*": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, num1 * num2);
+                                        }
+                                    },
+
+                                    "/": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, num1 / num2);
+                                        }
+                                    },
+
+                                    "**": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, Math.pow(num1, num2));
+                                        }
+                                    },
+
+                                    "//": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, Math.pow(num1, 1/num2));
+                                        }
+                                    },
+
+                                    "log": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, Math.log10(num2)/Math.log10(num1));
+                                        }
+                                    },
+
+                                    "trunc": {
+                                        "0": (saveVar, num1, num2) => {
+                                            setVariable(saveVar, Math.floor(num2 * 10**num1)/10**num1);
+                                        }
+                                    }
+                                }
+                            }
+                        },
+
+                        string: {
+                            "0": {
+                                "0": {
+                                    "+": {
+                                        "0": (saveVar, str1, str2) => {
+                                            setVariable(saveVar, str1 + str2);
+                                        }
+                                    },
+
+                                    "-": {
+                                        "0": (saveVar, str1, str2) => {
+                                            setVariable(saveVar, typeof str2 == 'number' ? str1.slice(0, -str2) : str1.replaceAll(str2, ''));
+                                        }
+                                    },
+
+                                    "*": {
+                                        "0": (saveVar, str1, str2) => {
+                                            setVariable(saveVar, str1.length * str2);
+                                        }
+                                    },
+
+                                    "/": {
+                                        "0": (saveVar, str1, str2) => {
+                                            setVariable(saveVar, str2 >= str1.length ? str1.slice(-1)[0] : (str2 < 0 ? str1[0] : str1[str2]));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    condition: {
+                        "0": {
+                            "0": {
+                                "|": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 | cond2);
+                                    }
+                                },
+
+                                "&": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 & cond2);
+                                    }
+                                },
+
+                                "^": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 ^ cond2);
+                                    }
+                                },
+
+                                "=": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 == cond2);
+                                    }
+                                },
+
+                                "!|": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, !(cond1 | cond2));
+                                    }
+                                },
+
+                                "!&": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, !(cond1 & cond2));
+                                    }
+                                },
+
+                                "!^": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, !cond1 ^ cond2);
+                                    }
+                                },
+
+                                "!=": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 != cond2);
+                                    }
+                                },
+
+                                ">": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 > cond2);
+                                    }
+                                },
+
+                                ">=": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 >= cond2);
+                                    }
+                                },
+
+                                "<": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 < cond2);
+                                    }
+                                },
+
+                                "<=": {
+                                    "0": (saveVar, cond1, cond2) => {
+                                        setVariable(saveVar, cond1 <= cond2);
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    convert: {
+                        "0": {
+                            "0": (saveVar, convertType) => {
+                                setVariable(saveVar, convertType + variables[saveVar].slice(1), false);
+                            }
+                        }
+                    },
+
+                    event: {
+                        "0": {
+                            "0": (button, logic) => {
+                                playButtonLogic[button] = () => {readCode(logic)};
+                            }
+                        }
+                    }
+                }
+
+                let variables = {
+                    _mathPI: "2" + Math.PI,
+                    _mathE: "2" + Math.E,
+                    _false: "20",
+                    _true: "21",
+                    _eventInput: "1"
+                }
+
+                let playButtonLogic = {leftArrow:()=>{},upArrow:()=>{},downArrow:()=>{},rightArrow:()=>{},buttonA:()=>{},buttonB:()=>{},sendMessage:()=>{}};
+
+                // Textarea Connections
+                let consoleArea = document.getElementById('console-area');
+                let codeArea = document.getElementById('code-area');
+            // }:Setup
+
+            // Code:
+
+            function getMessage() {
+                variables._eventInput = convertToPure(document.getElementById('textBox').value);
+                playButtonLogic.sendMessage();
+            }
+
+            function convertToPure(type) {
+                switch (typeof type) {
+                    case 'string':
+                        return '1' + type;
+                    case 'number':
+                        return '2' + type;
+                    case 'boolean':
+                        return '2' + (type? 1:0);
+                }
+            }
+
+            function setVariable(varName, toSet, forceSet) {
+                if (varName[0] != "_" || variables[varName] == undefined) {
+                    variables[varName] = forceSet == undefined ? convertToPure(toSet) : toSet;
+                }
+            }
+
+            // Splits Code and Commands
+            function splitCode(code, isSpace) {
+                const COMMAND = 0;
+                const STRING = 1;
+                const NUMBER = 2;
+                const FUNCTION = 3;
+                let bracket = 0;
+
+                let splitedCode = [];
+                let splitData = isSpace ? '0':'';
+                let mode = COMMAND;
+
+                for (let i = 0; i < code.length; i++) {
+                    if (code[i] == '{' && (mode == COMMAND || mode == FUNCTION)) {
+                        if (bracket == 0) {
+                            mode = FUNCTION;
+                            splitData = isSpace ? '3':splitData;
+                            i += isSpace;
+                        }
+
+                        bracket++;
+
+                        if (i >= code.length) {
+                            break;
+                        }
+                    }
+
+                    if (code[i] == '}' && mode == FUNCTION) {
+                        bracket --;
+
+                        if (bracket == 0) {
+                            mode = COMMAND;
+                            i += isSpace;
+                        }
+
+                        if (i >= code.length) {
+                            break;
+                        }
+                    }
+
+                    if (code[i] == '"' && (mode == COMMAND || mode == STRING)) {
+                        if (mode == STRING) {
+                            mode = COMMAND;
+                        } else {
+                            mode = STRING;
+                            splitData = isSpace ? '1':splitData;
+                        }
+
+                        i += isSpace;
+
+                        if (code[i] == '"' && isSpace) {
+                            if (mode == STRING) {
+                                mode = COMMAND;
+                            } else {
+                                mode = STRING;
+                                splitData = isSpace ? '1':splitData;
+                            }
+
+                            i += isSpace;
+                        }
+
+                        if (i >= code.length) {
+                            break;
+                        }
+                    }
+
+                    mode = ('0123456789').indexOf(code[i]) == -1 && mode == NUMBER ? COMMAND : mode;
+
+                    if (mode == COMMAND && code[i-1] == ' ' && (('0123456789.').indexOf(code[i]) > -1 || (code[i] == '-' && ('0123456789').indexOf(code[i+1]) > -1))) {
+                        splitData = isSpace ? '2':splitData;
+                        mode = NUMBER;
+                    }
+
+                    if (mode == FUNCTION) {
+                        splitData += code[i];
+                    }
+
+                    if (mode == NUMBER) {
+                        splitData += code[i];
+                    }
+
+                    if (mode == STRING) {
+                        if (code[i] == '\\') {
+                            splitData += isSpace ? '':'\\';
+                            i++;
+                        }
+
+                        splitData += code[i];
+                    }
+
+                    if (mode == COMMAND) {
+                        if (code[i] == (isSpace ? ' ' : ';')) {
+                            splitedCode.push(splitData);
+                            splitData = isSpace ? '0':'';
+                        } else {
+                            splitData += code[i];
+                        }
+                    }
+                }
+
+                splitedCode.push(splitData);
+
+                return splitedCode;
+            }
+
+            function readType(str) {
+                let typeData = str.slice(1);
+
+                switch (str[0]) {
+                    case '0':
+                        return readType(variables[typeData]);
+                    case '1':
+                        return typeData;
+                    case '2':
+                        return parseFloat(typeData);
+                    case '3':
+                        return typeData;
+                }
+            }
+
+            // Reads and Executes the Command
+            function readCommand(command) {
+                let commandList = splitCode(command, 1);
+
+                let nextIdx = commandSyntax;
+                let commandInputs = [];
+                let pureCommandInputs = [];
+
+                for (let i = 0; i < commandList.length; i++) {
+                    if (nextIdx['0'] == undefined) {
+                        nextIdx = nextIdx[commandList[i].slice(1)];
+                    } else {
+                        commandInputs.push(readType(commandList[i]));
+                        pureCommandInputs.push(commandList[i]);
+                        nextIdx = nextIdx['0'];
+                    }
+                }
+
+                commandInputs.push(pureCommandInputs);
+                nextIdx.apply(this, commandInputs);
+            }
+
+            function readCode(code) {
+                let commands = splitCode(code, 0);
+
+                for (let i = 0; i < commands.length; i++) {
+                    readCommand(commands[i].trim());
+                }
+            }
+
+            function runCode() {
+                consoleArea.rows = "25";
+                consoleArea.cols = "38";
+                playButtonLogic = {leftArrow:()=>{},upArrow:()=>{},downArrow:()=>{},rightArrow:()=>{},buttonA:()=>{},buttonB:()=>{},sendMessage:()=>{}};
+                variables = {
+                    _mathPI: "2" + Math.PI,
+                    _mathE: "2" + Math.E,
+                    _false: "20",
+                    _true: "21"
+                }
+                consoleArea.value = '';
+                readCode(codeArea.value);
+            }
+        </script>
+    </body>
+</html>
